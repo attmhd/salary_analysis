@@ -14,6 +14,22 @@ Move to Project
 ```bash
   cd salary_analysis/
 ``` 
+
+Create virtual environment
+```bash
+  python3 -m venv envname
+``` 
+
+Activate virtual environment
+- MacOS / Linux
+```bash
+  source envname/bin/activate 
+``` 
+- Windows
+```bash
+  envname\Script\activate 
+``` 
+
 Install all libraries needed
 
 ```bash

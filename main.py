@@ -1,52 +1,83 @@
 import streamlit as st
 import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.cluster import KMeans
 
-# Load dataset
-def load_data():
-    file_path = './dataset/'  # Pastikan file ini berada di lokasi yang sama dengan aplikasi Streamlit
+# Constants
+DATA_FILE_PATH = './dataset/salaries_by_college_major.csv'
+
+# Load the dataset
+def load_data(file_path):
     data = pd.read_csv(file_path)
-    data['Salary Growth (%)'] = ((data['Mid-Career Median Salary'] - data['Starting Median Salary']) /
-                                  data['Starting Median Salary']) * 100
-    return data
+    return data.dropna()
 
-data = load_data()
+# Visualizations
+def plot_boxplot(data):
+    fig, ax = plt.subplots(figsize=(12, 6))
+    sns.boxplot(data=data, x='Group', y='Mid-Career Median Salary', palette='Set2', ax=ax)
+    ax.set_title('Mid-Career Median Salary by Group', fontsize=14)
+    ax.set_xlabel('Group', fontsize=12)
+    ax.set_ylabel('Mid-Career Median Salary (USD)', fontsize=12)
+    st.pyplot(fig)
 
-# Sidebar configuration
-st.sidebar.title("Salary Analysis by College Major")
-option = st.sidebar.selectbox("Select Analysis", ["Top Majors by Growth", "Clustering"])
+def plot_top_majors(data):
+    top_majors = data.nlargest(5, 'Mid-Career Median Salary')
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(data=top_majors, y='Undergraduate Major', x='Mid-Career Median Salary', palette='Blues_r', ax=ax)
+    ax.set_title('Top 5 Majors by Mid-Career Median Salary', fontsize=14)
+    ax.set_xlabel('Mid-Career Median Salary (USD)', fontsize=12)
+    ax.set_ylabel('Undergraduate Major', fontsize=12)
+    st.pyplot(fig)
 
-if option == "Top Majors by Growth":
-    st.title("Top Majors with Highest Salary Growth")
-    top_majors = data[['Undergraduate Major', 'Salary Growth (%)']].sort_values(by='Salary Growth (%)', ascending=False)
-    st.dataframe(top_majors.head(10))
-    st.write("The table above shows the top 10 majors with the highest percentage growth in salary.")
+def plot_growth_salary(data):
+    growth_salary = data.copy()
+    growth_salary['Growth'] = data['Mid-Career Median Salary'] - data['Starting Median Salary']
+    top_growth = growth_salary.nlargest(5, 'Growth')
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(data=top_growth, y='Undergraduate Major', x='Growth', palette='Greens_r', ax=ax)
+    ax.set_title('Top 5 Majors by Growth Salary', fontsize=14)
+    ax.set_xlabel('Growth Salary (USD)', fontsize=12)
+    ax.set_ylabel('Undergraduate Major', fontsize=12)
+    st.pyplot(fig)
 
-elif option == "Clustering":
-    st.title("Clustering Majors by Salary Metrics")
+# Analysis
+def display_analysis(data):
+    highest_paying_major = data.loc[data['Mid-Career Median Salary'].idxmax()]
+    lowest_paying_major = data.loc[data['Mid-Career Median Salary'].idxmin()]
 
-    # Clustering data
-    clustering_data = data[['Starting Median Salary', 'Mid-Career Median Salary', 'Salary Growth (%)']].dropna()
-    scaler = MinMaxScaler()
-    normalized_data = scaler.fit_transform(clustering_data)
+    st.subheader("Highest-Paying Major")
+    st.write(f"**Major**: {highest_paying_major['Undergraduate Major']}")
+    st.write(f"**Starting Median Salary**: ${highest_paying_major['Starting Median Salary']:,.2f}")
+    st.write(f"**Mid-Career Median Salary**: ${highest_paying_major['Mid-Career Median Salary']:,.2f}")
+    st.write(f"**Mid-Career Salary Range**: ${highest_paying_major['Mid-Career 10th Percentile Salary']:,.2f} - ${highest_paying_major['Mid-Career 90th Percentile Salary']:,.2f}")
+    st.write(f"**Group**: {highest_paying_major['Group']}")
 
-    kmeans = KMeans(n_clusters=3, random_state=42)
-    clusters = kmeans.fit_predict(normalized_data)
+    st.subheader("Lowest-Paying Major")
+    st.write(f"**Major**: {lowest_paying_major['Undergraduate Major']}")
+    st.write(f"**Starting Median Salary**: ${lowest_paying_major['Starting Median Salary']:,.2f}")
+    st.write(f"**Mid-Career Median Salary**: ${lowest_paying_major['Mid-Career Median Salary']:,.2f}")
+    st.write(f"**Mid-Career Salary Range**: ${lowest_paying_major['Mid-Career 10th Percentile Salary']:,.2f} - ${lowest_paying_major['Mid-Career 90th Percentile Salary']:,.2f}")
+    st.write(f"**Group**: {lowest_paying_major['Group']}")
 
-    data['Cluster'] = -1  # Untuk menangani NaN
-    data.loc[clustering_data.index, 'Cluster'] = clusters
+# Main function
+def main():
+    data = load_data(DATA_FILE_PATH)
 
-    # Visualization
-    plt.figure(figsize=(10, 6))
-    plt.scatter(normalized_data[:, 0], normalized_data[:, 1], c=clusters, cmap='viridis', alpha=0.7)
-    plt.colorbar(label='Cluster')
-    plt.xlabel('Starting Median Salary (Normalized)')
-    plt.ylabel('Mid-Career Median Salary (Normalized)')
-    plt.title('Clustering of College Majors by Salary Metrics')
-    st.pyplot(plt)
+    st.title("College Salaries Explorer")
+    st.write(data)
 
-    # Display clustered data
-    st.write("Clustered data sample:")
-    st.dataframe(data[['Undergraduate Major', 'Cluster', 'Starting Median Salary', 'Mid-Career Median Salary', 'Salary Growth (%)']].head(10))
+    with st.expander("Visualizations"):
+        st.header("Visualizations")
+        st.subheader("Mid-Career Median Salary by Group")
+        plot_boxplot(data)
+        st.subheader("Top 5 Majors by Mid-Career Median Salary")
+        plot_top_majors(data)
+        st.subheader("Top 5 Majors by Growth Salary")
+        plot_growth_salary(data)
+
+    with st.expander("Analysis"):
+        st.header("Analysis")
+        display_analysis(data)
+
+if __name__ == "__main__":
+    main()
